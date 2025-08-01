@@ -91,6 +91,13 @@ This command creates a reward pool for a given `TOKEN_ADDRESS` associated with a
 - **Claim start**: `1753911142` - timestamp when claiming can begin
 - **Nonce**: `1` (random number) - **⚠️ MUST be incremented for same parameters**
 
+### ⚠️ **IMPORTANT: Testing Claim-Start**
+
+> The `claim-start` timestamp must be set to a **future time** for testing purposes. If you set it to the past or current time, program will fail.
+>
+> **For testing:** Use a timestamp that's at least 1 minute in the future
+> **For production:** Use the actual deployment time or a specific future date
+
 ### Example Commands
 
 #### Using shell script (Most Reliable)
@@ -137,7 +144,7 @@ node dist/index.js create-reward-pool \
 | `-s` | `STAKE_POOL` | Stake pool address |
 | `-k` | `key.json` | Keypair file path |
 | `--claim-period` | `1000` | Duration for claiming rewards (in seconds) |
-| `--claim-start` | `1753911142` | Timestamp when claiming can begin |
+| `--claim-start` | `1753911142` | **⚠️ Timestamp when claiming can begin (MUST be future for testing)** |
 | `-n` | `1` | **⚠️ Nonce for PDA derivation (MUST be incremented for same parameters)** |
 | `-u` | `PUBLIC_RPC_LINK` | Solana RPC endpoint URL |
 
