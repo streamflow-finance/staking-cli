@@ -2,10 +2,46 @@
 
 A command-line interface tool for managing Streamflow staking pools, rewards pools, and governors on Solana.
 
+## Prerequisites
+
+### Install Node.js
+
+This project requires Node.js version 20. You can install it using:
+
+#### Using nvm (recommended):
+```bash
+# Install nvm if you don't have it
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Restart your terminal or run:
+source ~/.bashrc
+
+# Install and use Node.js 20
+nvm install 20
+nvm use 20
+```
+
+#### Using Node.js installer:
+Download and install Node.js 20 from [nodejs.org](https://nodejs.org/)
+
+#### Using Homebrew (macOS):
+```bash
+brew install node@20
+```
+
+### Verify Installation
+```bash
+node --version
+# Should output: v20.x.x
+```
+
 ## Installation
 
 ```bash
+# Install dependencies
 npm install
+
+# Build the project
 npm run build
 
 # Make the CLI script executable
@@ -166,6 +202,9 @@ Options:
 ## Development
 
 ```bash
+# Ensure you're using Node.js 20
+nvm use 20
+
 # Install dependencies
 npm install
 
