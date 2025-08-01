@@ -1,0 +1,35 @@
+{
+  "name": "streamflow-staking-cli",
+  "version": "1.0.0",
+  "description": "CLI tool for managing Streamflow staking pools, rewards pools and governors",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc --skipLibCheck",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^13.1.0",
+    "@coral-xyz/anchor": "^0.31.1",
+    "@coral-xyz/spl-token": "^0.31.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.0.0"
+  },
+  "bin": {
+    "streamflow-staking": "./dist/index.js"
+  },
+  "keywords": [
+    "solana",
+    "staking",
+    "streamflow",
+    "cli"
+  ],
+  "author": "Streamflow",
+  "license": "MIT",
+  "packageManager": "yarn@4.7.0+sha512.5a0afa1d4c1d844b3447ee3319633797bcd6385d9a44be07993ae52ff4facabccafb4af5dcd1c2f9a94ac113e5e9ff56f6130431905884414229e284e37bb7c9"
+}
