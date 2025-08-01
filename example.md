@@ -4,6 +4,12 @@
 
 Be sure to create a file containing your wallet private key and reference it for each command. In this example it will be called `key.json` and will be stored in this repo.
 
+## ⚠️ **IMPORTANT: Nonce Management**
+
+> When creating pools with the same parameters (mint, authority, etc.), you **MUST** increment the nonce value. Each nonce can only be used once for the same combination of parameters.
+>
+> **Example:** If you create a stake pool with nonce `0` and it fails, you cannot reuse nonce `0` - you must use nonce `1` for the next attempt.
+
 ## Staking Pool Creation
 
 This command creates a staking pool of a given `TOKEN_ADDRESS`.
@@ -15,7 +21,7 @@ This command creates a staking pool of a given `TOKEN_ADDRESS`.
 - **Maximum duration**: `7776000` seconds (90 days)
 - **Unstake period**: `0` seconds
 - **Freeze authority**: Enabled (`-f` flag)
-- **Nonce**: `1` (random number)
+- **Nonce**: `1` (random number) - **⚠️ MUST be incremented for same parameters**
 
 ### Example Commands
 
@@ -72,7 +78,7 @@ node dist/index.js create-stake-pool \
 | `--max-duration` | `7776000` | Maximum staking duration (90 days in seconds) |
 | `--unstake-period` | `0` | Period required for unstaking (0 seconds) |
 | `-f` | - | Enable freeze authority |
-| `-n` | `1` | Nonce for PDA derivation |
+| `-n` | `1` | **⚠️ Nonce for PDA derivation (MUST be incremented for same parameters)** |
 | `-u` | `PUBLIC_RPC_LINK` | Solana RPC endpoint URL |
 
 ## Reward Pool Creation
@@ -83,7 +89,7 @@ This command creates a reward pool for a given `TOKEN_ADDRESS` associated with a
 
 - **Claim period**: `1000` seconds - duration for claiming rewards
 - **Claim start**: `1753911142` - timestamp when claiming can begin
-- **Nonce**: `1` (random number)
+- **Nonce**: `1` (random number) - **⚠️ MUST be incremented for same parameters**
 
 ### Example Commands
 
@@ -132,7 +138,7 @@ node dist/index.js create-reward-pool \
 | `-k` | `key.json` | Keypair file path |
 | `--claim-period` | `1000` | Duration for claiming rewards (in seconds) |
 | `--claim-start` | `1753911142` | Timestamp when claiming can begin |
-| `-n` | `1` | Nonce for PDA derivation |
+| `-n` | `1` | **⚠️ Nonce for PDA derivation (MUST be incremented for same parameters)** |
 | `-u` | `PUBLIC_RPC_LINK` | Solana RPC endpoint URL |
 
 ## Reward Pool Funding
