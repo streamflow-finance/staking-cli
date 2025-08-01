@@ -56,4 +56,10 @@ jspm_packages/
 .yarn-integrity
 
 # dotenv environment variables file
-.env 
+.env
+
+# Sensitive files
+key.json
+*.key
+*.pem
+wallet.json 
