@@ -2,7 +2,7 @@
   "address": "STAKEvGqQTtzJZH6BWDcbpzXXn2BBerPAgQ3EGLN2GH",
   "metadata": {
     "name": "stake_pool",
-    "version": "2.1.2",
+    "version": "2.3.0",
     "spec": "0.1.0",
     "description": "Program to manage Stake Pools and stake/unstake tokens"
   },
@@ -42,16 +42,16 @@
       "args": []
     },
     {
-      "name": "claim_entry",
+      "name": "close_entry",
       "discriminator": [
-        255,
-        0,
-        113,
-        239,
-        102,
-        117,
+        132,
+        26,
+        202,
+        145,
+        190,
+        37,
         114,
-        50
+        67
       ],
       "accounts": [
         {
@@ -59,8 +59,6 @@
           "docs": [
             "Stake Pool"
           ],
-          "writable": true,
-          "address": "Cja9f8JFS6sTgBqSRZGBrA2HDbUj4MZUGdtRYruKTeJp",
           "relations": [
             "stake_entry"
           ]
@@ -68,51 +66,39 @@
         {
           "name": "stake_entry",
           "docs": [
-            "Entry that stores Stake Metadata"
-          ],
-          "writable": true
-        },
-        {
-          "name": "vault",
-          "docs": [
-            "Escrow Account that stores Staked tokens"
-          ],
-          "writable": true,
-          "relations": [
-            "stake_pool"
-          ]
-        },
-        {
-          "name": "to",
-          "docs": [
-            "Token account to withdraw Staked tokens to"
+            "Stake Entry"
           ],
           "writable": true
         },
         {
           "name": "authority",
-          "docs": [
-            "Authority"
-          ],
           "writable": true,
           "signer": true
         },
         {
-          "name": "mint",
-          "docs": [
-            "Original mint of staked tokens"
-          ],
+          "name": "rent_sponsor",
           "writable": true,
-          "relations": [
-            "stake_pool"
-          ]
-        },
-        {
-          "name": "token_program"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  110,
+                  116,
+                  45,
+                  115,
+                  112,
+                  111,
+                  110,
+                  115,
+                  111,
+                  114
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -864,6 +850,31 @@
           ]
         },
         {
+          "name": "rent_sponsor",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  110,
+                  116,
+                  45,
+                  115,
+                  112,
+                  111,
+                  110,
+                  115,
+                  111,
+                  114
+                ]
+              }
+            ]
+          }
+        },
+        {
           "name": "token_program"
         },
         {
@@ -966,10 +977,42 @@
           ]
         },
         {
+          "name": "rent_sponsor",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  110,
+                  116,
+                  45,
+                  115,
+                  112,
+                  111,
+                  110,
+                  115,
+                  111,
+                  114
+                ]
+              }
+            ]
+          }
+        },
+        {
           "name": "token_program"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "should_close",
+          "type": {
+            "option": "bool"
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1103,6 +1146,16 @@
       "code": 6017,
       "name": "UnstakeTooEarly",
       "msg": "Unstake is not possible until unstake period has passed"
+    },
+    {
+      "code": 6018,
+      "name": "ActiveStake",
+      "msg": "Stake Entry is still active, can't be closed"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidMinDuration",
+      "msg": "Minimum duration should be at least 1"
     }
   ],
   "types": [
@@ -1237,6 +1290,13 @@
             "type": "u64"
           },
           {
+            "name": "is_sponsored",
+            "docs": [
+              "Whether the entry rent has been sponsored by the rent vault"
+            ],
+            "type": "bool"
+          },
+          {
             "name": "_buffer",
             "docs": [
               "Buffer for additional fields"
@@ -1244,7 +1304,7 @@
             "type": {
               "array": [
                 "u8",
-                40
+                39
               ]
             }
           }

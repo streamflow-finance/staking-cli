@@ -2,7 +2,7 @@
   "address": "GVERNASJFxi8vjjJtwCKYQTeN51XsV1y2B1ap1GtKrKR",
   "metadata": {
     "name": "governor",
-    "version": "2.1.2",
+    "version": "2.3.0",
     "spec": "0.1.0",
     "description": "Governor program to allow users to vote with stake tokens"
   },
@@ -330,6 +330,31 @@
           ],
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "rent_sponsor",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  110,
+                  116,
+                  45,
+                  115,
+                  112,
+                  111,
+                  110,
+                  115,
+                  111,
+                  114
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "system_program",
@@ -826,6 +851,13 @@
             "type": "u64"
           },
           {
+            "name": "is_sponsored",
+            "docs": [
+              "Whether the vote rent has been sponsored by the rent vault"
+            ],
+            "type": "bool"
+          },
+          {
             "name": "_buffer",
             "docs": [
               "Buffer for additional fields"
@@ -833,7 +865,7 @@
             "type": {
               "array": [
                 "u8",
-                64
+                63
               ]
             }
           }
