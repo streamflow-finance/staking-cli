@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-
 import { Command } from '@commander-js/extra-typings';
 import * as anchor from '@coral-xyz/anchor';
 import { BN } from '@coral-xyz/anchor';
 import {
+  AuthorityType,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
-  createBurnInstruction,
+  createSetAuthorityInstruction,
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Transaction } from '@solana/web3.js';
 import fs from 'fs';
+
 import { buildGovernorProgram, buildRewardDynamicProgram, buildStakeProgram } from './idl';
 import {
   deriveGovernorPDA,
@@ -491,112 +492,109 @@ program
     }
   });
 
+// Stake Pool Authority Transfer
 program
-  .command('claim-entry')
-  .description('Claim one or more stake entries')
-  .option('-e, --entry <address>', 'A single stake entry address to claim')
-  .option('-f, --file <path>', 'Path to a file with stake entry addresses to claim')
-  .requiredOption('-t, --to <address>', 'Token account that should receive staked tokens')
-  .option('--burn', 'Whether to burn staked tokens after receiving', false)
+  .command('transfer-stake-pool-authority')
+  .description('Transfer authority of a stake pool to a new authority')
+  .requiredOption('-p, --pool <address>', 'stake pool address')
+  .requiredOption('-n, --new-authority <address>', 'new authority address')
   .action(async (options, command) => {
-    if (!options.entry && !options.file) {
-      console.error('Error: Either --entry or --file must be provided.');
-      return;
-    }
-
     try {
       const provider = configureProvider(command.optsWithGlobals().url, command.optsWithGlobals().keypair);
       const stakeProgram = buildStakeProgram(provider);
-      const toTaKey = new anchor.web3.PublicKey(options.to);
 
-      let entryAddresses: string[] = [];
-      if (options.entry) {
-        entryAddresses.push(options.entry);
-      } else if (options.file) {
-        if (!fs.existsSync(options.file)) {
-          console.error(`Error: Entries file not found at ${options.file}`);
-          return;
-        }
-        const fileContent = fs.readFileSync(options.file, 'utf8');
-        entryAddresses = fileContent
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean);
-      }
+      const stakePoolKey = new anchor.web3.PublicKey(options.pool);
+      const newAuthorityKey = new anchor.web3.PublicKey(options.newAuthority);
 
-      if (entryAddresses.length === 0) {
-        console.error('No stake entry addresses to process.');
-        return;
-      }
+      console.log(`Transferring stake pool authority`);
+      console.log(`Stake Pool: ${stakePoolKey.toString()}`);
+      console.log(`Current Authority: ${provider.publicKey.toString()}`);
+      console.log(`New Authority: ${newAuthorityKey.toString()}`);
 
-      console.log(`Found ${entryAddresses.length} entries to claim.`);
+      const tx = await stakeProgram.methods
+        .changeAuthority()
+        .accounts({
+          stakePool: stakePoolKey,
+          authority: provider.publicKey,
+          newAuthority: newAuthorityKey,
+        })
+        .rpc();
 
-      const firstStakeEntry = await stakeProgram.account.stakeEntry.fetch(entryAddresses[0]);
-      const stakePoolKey = firstStakeEntry.stakePool;
-      const stakePool = await stakeProgram.account.stakePool.fetch(stakePoolKey);
-      const mintKey = stakePool.mint;
-
-      const batchSize = 10;
-
-      for (let i = 0; i < entryAddresses.length; i += batchSize) {
-        const batch = entryAddresses.slice(i, i + batchSize);
-        console.log(`Processing batch ${i / batchSize + 1}...`);
-
-        const entries = await stakeProgram.account.stakeEntry.fetchMultiple(batch);
-        const totalAmount = new anchor.BN('0');
-
-        const instructions = await Promise.all(
-          batch.map((entryAddress, i) => {
-            const stakeEntry = entries[i];
-            if (!stakePoolKey.equals(stakeEntry.stakePool)) {
-              throw new Error(
-                `Invalid stake pool in entry ${entryAddress.toString()}, expected ${stakePoolKey.toString()}`,
-              );
-            }
-            if (stakeEntry.closedTs.gtn(0)) {
-              return null;
-            }
-            totalAmount.iadd(stakeEntry.amount);
-            const stakeEntryKey = new PublicKey(entryAddress);
-
-            return stakeProgram.methods
-              .claimEntry()
-              .accounts({
-                stakeEntry: stakeEntryKey,
-                to: toTaKey,
-                authority: provider.publicKey,
-                tokenProgram: TOKEN_PROGRAM_ID,
-              })
-              .accountsPartial({
-                stakePool: stakePoolKey,
-                vault: stakePool.vault,
-                mint: stakePool.mint,
-              })
-              .instruction();
-          }),
-        );
-
-        const validInstructions = instructions.filter((ix) => ix !== null);
-        if (validInstructions.length > 0) {
-          if (options.burn) {
-            validInstructions.push(
-              createBurnInstruction(toTaKey, mintKey, provider.publicKey, BigInt(totalAmount.toString())),
-            );
-          }
-          const transaction = new anchor.web3.Transaction().add(...validInstructions);
-          try {
-            const tx = await provider.sendAndConfirm(transaction);
-            console.log(`Batch processed successfully! Transaction: ${tx}`);
-          } catch (error) {
-            console.error('Error sending transaction for batch:', error);
-          }
-        } else {
-          console.warn('No valid instructions to send for this batch.');
-        }
-      }
+      console.log(`Stake pool authority transferred successfully!`);
+      console.log(`Transaction: ${tx}`);
     } catch (error) {
-      console.error('An unexpected error occurred:', error);
+      console.error('Error transferring stake pool authority:', error);
     }
   });
 
-program.parse(); 
+// Reward Pool Authority Transfer
+program
+  .command('transfer-reward-pool-authority')
+  .description('Transfer authority of a reward pool to a new authority')
+  .requiredOption('-p, --pool <address>', 'reward pool address')
+  .requiredOption('-n, --new-authority <address>', 'new authority address')
+  .action(async (options, command) => {
+    try {
+      const provider = configureProvider(command.optsWithGlobals().url, command.optsWithGlobals().keypair);
+      const rewardDynamicProgram = buildRewardDynamicProgram(provider);
+
+      const rewardPoolKey = new anchor.web3.PublicKey(options.pool);
+      const newAuthorityKey = new anchor.web3.PublicKey(options.newAuthority);
+
+      console.log(`Transferring reward pool authority`);
+      console.log(`Reward Pool: ${rewardPoolKey.toString()}`);
+      console.log(`Current Authority: ${provider.publicKey.toString()}`);
+      console.log(`New Authority: ${newAuthorityKey.toString()}`);
+
+      const tx = await rewardDynamicProgram.methods
+        .changeAuthority()
+        .accounts({
+          rewardPool: rewardPoolKey,
+          authority: provider.publicKey,
+          newAuthority: newAuthorityKey,
+        })
+        .rpc();
+
+      console.log(`Reward pool authority transferred successfully!`);
+      console.log(`Transaction: ${tx}`);
+    } catch (error) {
+      console.error('Error transferring reward pool authority:', error);
+    }
+  });
+
+program
+  .command('transfer-fee-withdraw-authority')
+  .description('Transfer withdrawn authority of a Token2022 mint with TransferFeeConfig')
+  .requiredOption('-m, --mint <address>', 'mint')
+  .requiredOption('-n, --new-authority <address>', 'new authority address')
+  .action(async (options, command) => {
+    try {
+      const provider = configureProvider(command.optsWithGlobals().url, command.optsWithGlobals().keypair);
+      const mintKey = new PublicKey(options.mint);
+      const newAuthorityKey = new PublicKey(options.newAuthority);
+      const account = await provider.connection.getAccountInfo(mintKey);
+
+      console.log(`Transferring withdraw withheld authority`);
+      console.log(`Mint: ${mintKey.toString()}`);
+      console.log(`Current Authority: ${provider.publicKey.toString()}`);
+      console.log(`New Authority: ${newAuthorityKey.toString()}`);
+
+      const ix = createSetAuthorityInstruction(
+        mintKey,
+        provider.publicKey,
+        AuthorityType.WithheldWithdraw,
+        newAuthorityKey,
+        undefined,
+        account!.owner,
+      );
+      const transaction = new Transaction().add(ix);
+      const signature = await provider.sendAndConfirm(transaction);
+
+      console.log(`Withdraw withheld authority transferred successfully!`);
+      console.log(`Transaction: ${signature}`);
+    } catch (error) {
+      console.error('Error transferring reward pool authority:', error);
+    }
+  });
+
+program.parse();
