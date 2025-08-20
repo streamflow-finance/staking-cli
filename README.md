@@ -194,6 +194,21 @@ Options:
 ./cli.sh get-derived-addresses -m <mint-address> -a <authority-address>
 ```
 
+### Transfer Stake Pool Authority
+```bash
+./cli.sh transfer-stake-pool-authority -p <stake-pool-address> -n <new-authority-address> -k <keypair-path> -u <rpc-url>
+```
+
+### Transfer Reward Pool Authority
+```bash
+./cli.sh transfer-reward-pool-authority -p <reward-pool-address> -n <new-authority-address> -k <keypair-path> -u <rpc-url>
+```
+
+### Transfer Token 2022 Transfer Fee Withdraw Authority
+```bash
+./cli.sh transfer-fee-withdraw-authority -m <mint-address> -n <new-authority-address> -k <keypair-path> -u <rpc-url>
+```
+
 ## Environment Variables
 
 - `ANCHOR_PROVIDER_URL`: Solana cluster URL
