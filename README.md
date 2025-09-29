@@ -209,6 +209,14 @@ Options:
 ./cli.sh transfer-fee-withdraw-authority -m <mint-address> -n <new-authority-address> -k <keypair-path> -u <rpc-url>
 ```
 
+### Create Lookup Table
+
+A helper instruction that creates a Lookup Table and connects it to a specific stake pool (a PDA account that just stores stake pool -> ALT link).
+
+```bash
+./cli.sh create-lookup-table -p <stake-pool> --addresses ... -k <keypair-path> -u <rpc-url>
+```
+
 ## Environment Variables
 
 - `ANCHOR_PROVIDER_URL`: Solana cluster URL
