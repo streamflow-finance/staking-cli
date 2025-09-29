@@ -156,7 +156,7 @@ Options:
 - `--stake-entry-nonce <number>`: Nonce for stake entry PDA derivation (default: 0)
 - `--proposal-nonce <number>`: Nonce for proposal PDA derivation (default: 0)
 
-### Create Lookup Table
+#### Create Lookup Table
 
 Create a new Address Lookup Table (ALT) and link it to a stake pool via an on-chain link (PDA) account. Optionally extend the ALT with provided addresses.
 
