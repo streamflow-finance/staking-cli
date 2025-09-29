@@ -39,7 +39,6 @@ const program = new Command()
 
 // Configure anchor provider
 const configureProvider = (url: string, keypairOrPath: string) => {
-  console.log(url);
   const connection = new anchor.web3.Connection(url);
   let keypair: anchor.web3.Keypair;
   if (fs.existsSync(keypairOrPath)) {
@@ -67,7 +66,7 @@ program
   .requiredOption('-m, --mint <address>', 'token mint address')
   .option('-n, --nonce <number>', 'nonce for PDA derivation', '0')
   .option('--max-weight <number>', 'maximum weight multiplier (in basis points, e.g. 4000000000 for 4x)', '4000000000')
-  .option('--min-duration <number>', 'minimum staking duration in seconds', '0')
+  .option('--min-duration <number>', 'minimum staking duration in seconds', '1')
   .option('--max-duration <number>', 'maximum staking duration in seconds', '31536000')
   .option('-p, --permissionless', 'allow anyone to create reward pools', false)
   .option('-f, --freeze', 'freeze token accounts', true)
@@ -401,97 +400,6 @@ program
     }
   });
 
-// Helper commands
-program
-  .command('get-derived-addresses')
-  .description('Get derived addresses from given parameters')
-  .option('--stake-pool <address>', 'stake pool address')
-  .option('-a, --authority <address>', 'authority address (defaults to current wallet)')
-  .option('-m, --mint <address>', 'token mint address')
-  .option('--reward-mint <address>', 'reward mint address')
-  .option('--reward-pool <address>', 'reward pool address')
-  .option('-g, --governor <address>', 'governor address')
-  .option('-p, --proposal <address>', 'proposal address')
-  .option('--stake-entry <address>', 'stake entry address')
-  .option('-n, --nonce <number>', 'nonce for PDA derivation', '0')
-  .option('--stake-entry-nonce <number>', 'nonce for stake entry PDA derivation', '0')
-  .option('--proposal-nonce <number>', 'nonce for proposal PDA derivation', '0')
-  .action(async (options, command) => {
-    try {
-      const provider = configureProvider(command.optsWithGlobals().url, command.optsWithGlobals().keypair);
-
-      const stakeProgram = buildStakeProgram(provider);
-      const governorProgram = buildGovernorProgram(provider);
-      const rewardDynamicProgram = buildRewardDynamicProgram(provider);
-
-      const nonce = parseInt(options.nonce);
-      const stakeEntryNonce = parseInt(options.stakeEntryNonce);
-      const proposalNonce = parseInt(options.proposalNonce);
-      const authority = options.authority ? new PublicKey(options.authority) : provider.publicKey;
-
-      console.log('Derived addresses:');
-
-      if (options.mint && options.authority) {
-        const stakePoolKey = deriveStakePoolPDA(stakeProgram.programId, new PublicKey(options.mint), authority, nonce);
-        console.log(`Stake Pool: ${stakePoolKey.toString()}`);
-
-        const stakeMintKey = deriveStakeMintPDA(stakeProgram.programId, stakePoolKey);
-        console.log(`Stake Mint: ${stakeMintKey.toString()}`);
-
-        const stakeVaultKey = deriveStakeVaultPDA(stakeProgram.programId, stakePoolKey);
-        console.log(`Stake Vault: ${stakeVaultKey.toString()}`);
-      }
-
-      if (options.stakePool) {
-        const stakePoolKey = new PublicKey(options.stakePool);
-
-        if (options.authority) {
-          const stakeEntryKey = deriveStakeEntryPDA(stakeProgram.programId, stakePoolKey, authority, stakeEntryNonce);
-          console.log(`Stake Entry: ${stakeEntryKey.toString()}`);
-        }
-
-        const governorKey = deriveGovernorPDA(governorProgram.programId, stakePoolKey, nonce);
-        console.log(`Governor: ${governorKey.toString()}`);
-
-        if (options.rewardMint) {
-          const rewardPoolKey = deriveRewardPoolPDA(
-            rewardDynamicProgram.programId,
-            stakePoolKey,
-            new PublicKey(options.rewardMint),
-            nonce,
-          );
-          console.log(`Reward Pool: ${rewardPoolKey.toString()}`);
-
-          const rewardVaultKey = deriveRewardVaultPDA(rewardDynamicProgram.programId, rewardPoolKey);
-          console.log(`Reward Vault: ${rewardVaultKey.toString()}`);
-        }
-      }
-
-      if (options.governor) {
-        const governorKey = new PublicKey(options.governor);
-
-        const proposalKey = deriveProposalPDA(governorProgram.programId, governorKey, proposalNonce);
-        console.log(`Proposal: ${proposalKey.toString()}`);
-      }
-
-      if (options.proposal && options.authority) {
-        const voteKey = deriveVotePDA(governorProgram.programId, new PublicKey(options.proposal), authority);
-        console.log(`Vote: ${voteKey.toString()}`);
-      }
-
-      if (options.rewardPool && options.stakeEntry) {
-        const rewardEntryKey = deriveRewardEntryPDA(
-          rewardDynamicProgram.programId,
-          new PublicKey(options.rewardPool),
-          new PublicKey(options.stakeEntry),
-        );
-        console.log(`Reward Entry: ${rewardEntryKey.toString()}`);
-      }
-    } catch (error) {
-      console.error('Error getting derived addresses:', error);
-    }
-  });
-
 // Stake Pool Authority Transfer
 program
   .command('transfer-stake-pool-authority')
@@ -594,6 +502,172 @@ program
       console.log(`Transaction: ${signature}`);
     } catch (error) {
       console.error('Error transferring reward pool authority:', error);
+    }
+  });
+
+// Stake Pool - Lookup Table
+program
+  .command('create-lookup-table')
+  .description('Create a new address lookup table for a stake pool and optionally extend it with addresses')
+  .requiredOption('-p --stake-pool <address>', 'stake pool address')
+  .option('-n --nonce <number>', 'unique nonce for lookup table link', '0')
+  .option('--recent-slot <number>', 'recent slot to seed lookup table creation')
+  .option('--authority <address>', 'authority of the lookup table (defaults to wallet)')
+  .option('--addresses <addresses...>', 'space separated list of addresses to add to the lookup table')
+  .action(async (options, command) => {
+    try {
+      const provider = configureProvider(command.optsWithGlobals().url, command.optsWithGlobals().keypair);
+      const stakeProgram = buildStakeProgram(provider);
+
+      const stakePoolKey = new PublicKey(options.stakePool);
+      const nonce = parseInt(options.nonce);
+      const recentSlot = BigInt(options.recentSlot ? options.recentSlot : await provider.connection.getSlot());
+
+      // Compute the expected lookup table address for transparency
+      const lookupTableAddress = anchor.web3.AddressLookupTableProgram.createLookupTable({
+        authority: provider.publicKey,
+        payer: provider.publicKey,
+        recentSlot,
+      })[1];
+
+      console.log(`Creating lookup table link for stake pool ${stakePoolKey.toString()}`);
+      console.log(`Nonce: ${nonce}`);
+      console.log(`Recent slot: ${recentSlot.toString()}`);
+      console.log(`Lookup Table (expected): ${lookupTableAddress.toString()}`);
+
+      // Call on-chain program to create the lookup table and link account
+      const txSig = await stakeProgram.methods
+        .createLookupTable(nonce, new BN(Number(recentSlot)))
+        .accounts({
+          stakePool: stakePoolKey,
+          lookupTable: lookupTableAddress,
+          payer: provider.publicKey,
+          authority: provider.publicKey,
+        })
+        .rpc();
+
+      console.log(`Lookup table created. Tx: ${txSig}`);
+
+      // If addresses were passed, extend the table in chunks of up to 20 per instruction
+      if (options.addresses && Array.isArray(options.addresses) && options.addresses.length > 0) {
+        const allAddresses: PublicKey[] = options.addresses.map((a: string) => new PublicKey(a));
+        const CHUNK = 20; // max 20 addresses per extend
+        for (let i = 0; i < allAddresses.length; i += CHUNK) {
+          const chunk = allAddresses.slice(i, i + CHUNK);
+          const extendIx = anchor.web3.AddressLookupTableProgram.extendLookupTable({
+            payer: provider.publicKey,
+            authority: provider.publicKey,
+            lookupTable: lookupTableAddress,
+            addresses: chunk,
+          });
+          const latestBlockhash = await provider.connection.getLatestBlockhash();
+          const message = new anchor.web3.TransactionMessage({
+            payerKey: provider.publicKey,
+            recentBlockhash: latestBlockhash.blockhash,
+            instructions: [extendIx],
+          }).compileToV0Message();
+          const vtx = new anchor.web3.VersionedTransaction(message);
+          // Sign if payer is the wallet; otherwise, additional signing would be needed
+          // since CLI only uses the configured wallet, this supports when payer==wallet
+          const sig = await provider.sendAndConfirm(vtx);
+          console.log(`Extended lookup table with ${chunk.length} addresses. Tx: ${sig}`);
+        }
+      }
+
+      console.log(`Lookup table address: ${lookupTableAddress.toString()}`);
+    } catch (error) {
+      console.error('Error creating/extending lookup table:', error);
+    }
+  });
+
+// Helper commands
+program
+  .command('get-derived-addresses')
+  .description('Get derived addresses from given parameters')
+  .option('--stake-pool <address>', 'stake pool address')
+  .option('-a, --authority <address>', 'authority address (defaults to current wallet)')
+  .option('-m, --mint <address>', 'token mint address')
+  .option('--reward-mint <address>', 'reward mint address')
+  .option('--reward-pool <address>', 'reward pool address')
+  .option('-g, --governor <address>', 'governor address')
+  .option('-p, --proposal <address>', 'proposal address')
+  .option('--stake-entry <address>', 'stake entry address')
+  .option('-n, --nonce <number>', 'nonce for PDA derivation', '0')
+  .option('--stake-entry-nonce <number>', 'nonce for stake entry PDA derivation', '0')
+  .option('--proposal-nonce <number>', 'nonce for proposal PDA derivation', '0')
+  .action(async (options, command) => {
+    try {
+      const provider = configureProvider(command.optsWithGlobals().url, command.optsWithGlobals().keypair);
+
+      const stakeProgram = buildStakeProgram(provider);
+      const governorProgram = buildGovernorProgram(provider);
+      const rewardDynamicProgram = buildRewardDynamicProgram(provider);
+
+      const nonce = parseInt(options.nonce);
+      const stakeEntryNonce = parseInt(options.stakeEntryNonce);
+      const proposalNonce = parseInt(options.proposalNonce);
+      const authority = options.authority ? new PublicKey(options.authority) : provider.publicKey;
+
+      console.log('Derived addresses:');
+
+      if (options.mint && options.authority) {
+        const stakePoolKey = deriveStakePoolPDA(stakeProgram.programId, new PublicKey(options.mint), authority, nonce);
+        console.log(`Stake Pool: ${stakePoolKey.toString()}`);
+
+        const stakeMintKey = deriveStakeMintPDA(stakeProgram.programId, stakePoolKey);
+        console.log(`Stake Mint: ${stakeMintKey.toString()}`);
+
+        const stakeVaultKey = deriveStakeVaultPDA(stakeProgram.programId, stakePoolKey);
+        console.log(`Stake Vault: ${stakeVaultKey.toString()}`);
+      }
+
+      if (options.stakePool) {
+        const stakePoolKey = new PublicKey(options.stakePool);
+
+        if (options.authority) {
+          const stakeEntryKey = deriveStakeEntryPDA(stakeProgram.programId, stakePoolKey, authority, stakeEntryNonce);
+          console.log(`Stake Entry: ${stakeEntryKey.toString()}`);
+        }
+
+        const governorKey = deriveGovernorPDA(governorProgram.programId, stakePoolKey, nonce);
+        console.log(`Governor: ${governorKey.toString()}`);
+
+        if (options.rewardMint) {
+          const rewardPoolKey = deriveRewardPoolPDA(
+            rewardDynamicProgram.programId,
+            stakePoolKey,
+            new PublicKey(options.rewardMint),
+            nonce,
+          );
+          console.log(`Reward Pool: ${rewardPoolKey.toString()}`);
+
+          const rewardVaultKey = deriveRewardVaultPDA(rewardDynamicProgram.programId, rewardPoolKey);
+          console.log(`Reward Vault: ${rewardVaultKey.toString()}`);
+        }
+      }
+
+      if (options.governor) {
+        const governorKey = new PublicKey(options.governor);
+
+        const proposalKey = deriveProposalPDA(governorProgram.programId, governorKey, proposalNonce);
+        console.log(`Proposal: ${proposalKey.toString()}`);
+      }
+
+      if (options.proposal && options.authority) {
+        const voteKey = deriveVotePDA(governorProgram.programId, new PublicKey(options.proposal), authority);
+        console.log(`Vote: ${voteKey.toString()}`);
+      }
+
+      if (options.rewardPool && options.stakeEntry) {
+        const rewardEntryKey = deriveRewardEntryPDA(
+          rewardDynamicProgram.programId,
+          new PublicKey(options.rewardPool),
+          new PublicKey(options.stakeEntry),
+        );
+        console.log(`Reward Entry: ${rewardEntryKey.toString()}`);
+      }
+    } catch (error) {
+      console.error('Error getting derived addresses:', error);
     }
   });
 
