@@ -156,16 +156,25 @@ Options:
 - `--stake-entry-nonce <number>`: Nonce for stake entry PDA derivation (default: 0)
 - `--proposal-nonce <number>`: Nonce for proposal PDA derivation (default: 0)
 
-#### Claim Entry
+### Create Lookup Table
+
+Create a new Address Lookup Table (ALT) and link it to a stake pool via an on-chain link (PDA) account. Optionally extend the ALT with provided addresses.
+
 ```bash
-./cli.sh claim-entry -t <to-address> [-e <entry-address> | -f <file-path>] [--burn]
+./cli.sh create-lookup-table -p <stake-pool-address> [options]
 ```
 
 Options:
-- `-e, --entry <address>`: A single stake entry address to claim
-- `-f, --file <path>`: Path to a file with stake entry addresses to claim
-- `-t, --to <address>`: Token account that should receive staked tokens (required)
-- `--burn`: Whether to burn staked tokens after receiving (default: false)
+- `-p, --stake-pool <address>`: Stake pool address to link this ALT to. Required.
+- `-n, --nonce <number>`: Unique nonce for the stake pool -> ALT link account (default: 0). Use a different nonce to create multiple links per pool.
+- `--recent-slot <number>`: Recent slot to seed ALT creation. If omitted, the CLI fetches the current slot from the RPC.
+- `--authority <address>`: Authority for the ALT (defaults to your wallet). Note: The CLI uses the configured wallet as payer and authority.
+- `--addresses <addresses...>`: Space-separated list of addresses to add to the ALT immediately after creation. They will be added in chunks of up to 20 per transaction.
+
+Notes:
+- The command prints the "expected" ALT address before creation, derived from the provided or fetched recent slot, so you know the final ALT address ahead of time.
+- Extending the ALT requires the ALT authority to sign. This CLI supports the common case where the payer and authority are the same (your wallet configured via `-k`).
+- Addresses are extended in chunks of up to 20 per instruction due to Solana limits.
 
 ## Examples
 
